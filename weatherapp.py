@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Weather Station - Stable Version
+🌤️ Stable Weather Station Dashboard
 """
 
 from flask import Flask, render_template, jsonify
@@ -34,7 +34,8 @@ def load_config():
         try:
             with open(CONFIG_FILE) as f:
                 return json.load(f)
-        except: pass
+        except:
+            pass
     return None
 
 def get_location_from_ip():
@@ -44,10 +45,12 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            name = f"{data.get('city', 'Unknown')}, {data.get('region', '')}"
+            name = f"{data.get('city', 'Unknown')}, {data.get('region', 'VA')}"
             return {"latitude": lat, "longitude": lon, "location_name": name}
-    except: pass
-    return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}  # Fallback
+    except:
+        pass
+    # Fallback to Bristow, VA
+    return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
 def fetch_weather(lat, lon):
     try:
@@ -70,16 +73,17 @@ def fetch_weather(lat, lon):
 
 def update_weather_loop():
     global weather_data, location_data, last_update
+    
     location_data = load_config() or get_location_from_ip()
-    if location_data:
-        save_config = lambda c: None  # dummy
-        # save_config(location_data)
-
+    
     while True:
         data = fetch_weather(location_data["latitude"], location_data["longitude"])
         if data:
             weather_data = data
             last_update = datetime.now().isoformat()
+            print("✅ Weather updated successfully")
+        else:
+            print("⚠️ Failed to fetch weather")
         time.sleep(UPDATE_INTERVAL)
 
 @app.route('/')
@@ -89,7 +93,7 @@ def index():
 @app.route('/api/weather')
 def get_weather():
     if not weather_data:
-        return jsonify({"error": "Loading data..."}), 503
+        return jsonify({"error": "Loading weather data..."}), 503
 
     current = weather_data.get("current", {})
     code = current.get("weather_code", 0)
@@ -109,7 +113,7 @@ def get_weather():
         "location": location_data.get("location_name", "Bristow, VA"),
         "temperature": round(current.get("temperature_2m", 0)),
         "feels_like": round(current.get("apparent_temperature", 0)),
-        "humidity": current.get("relative_humidity_2m", 0),
+        "humidity": current.get("relative_humidity_2m", "--"),
         "wind_speed": round(current.get("wind_speed_10m", 0), 1),
         "pressure": round(current.get("pressure_msl", 0)),
         "condition": condition,
@@ -120,4 +124,5 @@ def get_weather():
 
 if __name__ == '__main__':
     threading.Thread(target=update_weather_loop, daemon=True).start()
+    print("🌤️ Weather Station started")
     app.run(host='0.0.0.0', port=5000, debug=False)
