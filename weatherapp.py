@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-🌤️ Professional Weather Station - Fahrenheit + 7-Day + Hourly + Clock
+🌤️ Advanced Weather Station - Technical Dashboard
+Fahrenheit + More Data + Better Time Handling
 """
 
 from flask import Flask, render_template, jsonify
@@ -53,7 +54,7 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            name = f"{data.get('city', 'Unknown')}, {data.get('country_name', '')}"
+            name = f"{data.get('city', 'Unknown')}, {data.get('region', '')} {data.get('country_code', '')}"
             return {"latitude": lat, "longitude": lon, "location_name": name}
     except: pass
     return None
@@ -63,12 +64,10 @@ def fetch_weather(lat, lon):
         params = {
             "latitude": lat,
             "longitude": lon,
-            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl",
-            "hourly": "temperature_2m,weather_code",
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl,dew_point_2m",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min",
             "temperature_unit": "fahrenheit",
             "wind_speed_unit": "mph",
-            "precipitation_unit": "inch",
             "timezone": "auto",
             "forecast_days": 7
         }
@@ -106,16 +105,14 @@ def get_weather():
     code = current.get("weather_code", 0)
     condition, emoji = WEATHER_CODES.get(code, ("Unknown", "🌡️"))
 
-    # Prepare daily forecast
     daily = weather_data.get("daily", {})
     daily_forecast = []
-    if daily:
-        for i in range(min(7, len(daily.get("time", [])))):
+    if daily and "time" in daily:
+        for i in range(min(7, len(daily["time"]))):
             daily_forecast.append({
                 "day": datetime.fromisoformat(daily["time"][i]).strftime("%a"),
                 "max": round(daily["temperature_2m_max"][i]),
-                "min": round(daily["temperature_2m_min"][i]),
-                "code": daily["weather_code"][i]
+                "min": round(daily["temperature_2m_min"][i])
             })
 
     return jsonify({
@@ -123,15 +120,17 @@ def get_weather():
         "temperature": round(current.get("temperature_2m", 0)),
         "feels_like": round(current.get("apparent_temperature", 0)),
         "humidity": current.get("relative_humidity_2m"),
-        "wind_speed": round(current.get("wind_speed_10m", 0)),
+        "wind_speed": round(current.get("wind_speed_10m", 0), 1),
         "pressure": round(current.get("pressure_msl", 0)),
+        "dew_point": round(current.get("dew_point_2m", 0), 1),
         "condition": condition,
         "emoji": emoji,
         "daily": daily_forecast,
-        "last_update": last_update
+        "last_update": last_update,
+        "timezone": weather_data.get("timezone", "UTC")
     })
 
 if __name__ == '__main__':
     threading.Thread(target=update_weather_loop, daemon=True).start()
-    print("🌤️ Weather Station running at http://0.0.0.0:5000")
+    print("🌤️ Weather Station running")
     app.run(host='0.0.0.0', port=5000, debug=False)
