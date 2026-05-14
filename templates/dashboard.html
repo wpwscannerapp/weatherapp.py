@@ -5,116 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Station</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             background: linear-gradient(135deg, #0a0e27, #1e3a8a, #0f3460);
-            color: #ffffff;
+            color: white;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            margin: 0;
+            padding: 15px;
         }
-        .dashboard {
+        .dash {
             background: rgba(15, 23, 42, 0.95);
             border-radius: 30px;
-            padding: 50px 40px;
-            width: 100%;
-            max-width: 580px;
-            text-align: center;
-            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.7);
         }
-        .location {
-            font-size: 26px;
-            color: #a5b4fc;
-            margin-bottom: 15px;
-        }
-        .emoji {
-            font-size: 120px;
-            margin: 20px 0;
-            animation: float 3.5s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-25px); }
-        }
-        .temperature {
-            font-size: 92px;
-            font-weight: 200;
-            line-height: 1;
-        }
-        .condition {
-            font-size: 28px;
-            margin: 10px 0 25px;
-            color: #cbd5e0;
-        }
-        .metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 35px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        .metric-label {
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #94a3b8;
-        }
-        .metric-value {
-            font-size: 36px;
-            font-weight: 300;
-        }
-        .update {
-            margin-top: 40px;
-            font-size: 14px;
-            color: #64748b;
-        }
+        .clock { font-size: 28px; text-align: right; color: #a5b4fc; }
+        .emoji { font-size: 100px; animation: float 4s infinite; }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        .temp { font-size: 78px; font-weight: 200; }
+        .section { margin-top: 35px; }
+        .daily { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; }
+        .day { text-align: center; }
     </style>
 </head>
 <body>
-    <div class="dashboard" id="dashboard">
-        <p>Loading weather data...</p>
+    <div class="dash" id="dash">
+        <div class="clock" id="clock"></div>
+        Loading weather data...
     </div>
 
     <script>
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true});
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
         async function updateWeather() {
             try {
-                const response = await fetch('/api/weather');
-                const data = await response.json();
-
-                document.getElementById('dashboard').innerHTML = `
-                    <div class="location">${data.location || "Unknown Location"}</div>
-                    <div class="emoji">${data.emoji}</div>
-                    <div class="temperature">${Math.round(data.temperature)}°C</div>
-                    <div class="condition">${data.condition}</div>
-                    <div>Feels like ${Math.round(data.feels_like)}°C</div>
-                    
-                    <div class="metrics">
-                        <div>
-                            <div class="metric-label">Humidity</div>
-                            <div class="metric-value">${data.humidity}%</div>
-                        </div>
-                        <div>
-                            <div class="metric-label">Wind Speed</div>
-                            <div class="metric-value">${data.wind_speed} km/h</div>
-                        </div>
-                    </div>
-                    <div class="update">Updated ${new Date(data.last_update).toLocaleTimeString()}</div>
+                const d = await (await fetch('/api/weather')).json();
+                let html = `
+                    <div class="clock" id="clock"></div>
+                    <div style="font-size:26px;color:#a5b4fc">${d.location}</div>
+                    <div class="emoji">${d.emoji}</div>
+                    <div class="temp">${d.temperature}°F</div>
+                    <div style="font-size:24px">${d.condition} • Feels ${d.feels_like}°F</div>
                 `;
-            } catch (e) {
-                document.getElementById('dashboard').innerHTML = `<p>⚠️ Connecting to weather service...</p>`;
+
+                // Daily Forecast
+                if (d.daily && d.daily.length > 0) {
+                    html += `<div class="section"><h3>7-Day Forecast</h3><div class="daily">`;
+                    d.daily.forEach(day => {
+                        html += `<div class="day"><b>${day.day}</b><br>${day.max}° / ${day.min}°</div>`;
+                    });
+                    html += `</div></div>`;
+                }
+
+                html += `<div style="margin-top:25px;font-size:14px;color:#888">Updated ${new Date(d.last_update).toLocaleTimeString()}</div>`;
+                document.getElementById('dash').innerHTML = html;
+            } catch(e) {
+                console.error(e);
             }
         }
 
-        // Initial load + update every 30 seconds
         updateWeather();
         setInterval(updateWeather, 30000);
     </script>
