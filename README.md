@@ -17,3 +17,31 @@ A beautiful, professional dark-mode weather dashboard that runs automatically on
 cd ~/weather-station
 chmod +x setup.sh
 ./setup.sh
+Access the Dashboard
+After setup, open a web browser and go to:
+http://YOUR_PI_IP:5000
+Find your Pi's IP address with:
+Bashhostname -I
+Service Management
+Bash# Check status
+sudo systemctl status weather-station
+
+# Restart
+sudo systemctl restart weather-station
+
+# Stop
+sudo systemctl stop weather-station
+
+# View live logs
+sudo journalctl -u weather-station -f
+Reset Location
+If you move the Pi or want to change location:
+Bashrm ~/.weather_station_config.json
+sudo systemctl restart weather-station
+Project Structure
+textweather-station/
+├── weatherapp.py
+├── setup.sh
+├── README.md
+└── templates/
+    └── dashboard.html
