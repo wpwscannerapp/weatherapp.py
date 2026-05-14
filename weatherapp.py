@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Advanced Weather Station - Technical Dashboard
-Fahrenheit + More Data + Better Time Handling
+🌤️ Weather Station - Stable Version
 """
 
 from flask import Flask, render_template, jsonify
@@ -26,26 +25,17 @@ last_update = None
 
 WEATHER_CODES = {
     0: ("Clear sky", "☀️"), 1: ("Mainly clear", "🌤️"), 2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 48: ("Fog", "🌫️"),
-    51: ("Light drizzle", "🌦️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"), 65: ("Heavy rain", "🌧️"),
-    71: ("Snow", "🌨️"), 73: ("Snow", "🌨️"), 75: ("Heavy snow", "❄️"),
-    95: ("Thunderstorm", "⛈️"), 99: ("Thunderstorm", "⛈️"),
+    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"),
+    65: ("Heavy rain", "🌧️"), 71: ("Snow", "🌨️"), 95: ("Thunderstorm", "⛈️")
 }
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE) as f:
                 return json.load(f)
         except: pass
     return None
-
-def save_config(config):
-    try:
-        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(config, f, indent=2)
-    except: pass
 
 def get_location_from_ip():
     try:
@@ -54,42 +44,42 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            name = f"{data.get('city', 'Unknown')}, {data.get('region', '')} {data.get('country_code', '')}"
+            name = f"{data.get('city', 'Unknown')}, {data.get('region', '')}"
             return {"latitude": lat, "longitude": lon, "location_name": name}
     except: pass
-    return None
+    return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}  # Fallback
 
 def fetch_weather(lat, lon):
     try:
         params = {
             "latitude": lat,
             "longitude": lon,
-            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl,dew_point_2m",
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min",
             "temperature_unit": "fahrenheit",
             "wind_speed_unit": "mph",
             "timezone": "auto",
             "forecast_days": 7
         }
-        r = requests.get(WEATHER_API_URL, params=params, timeout=15)
+        r = requests.get(WEATHER_API_URL, params=params, timeout=12)
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print(f"Fetch error: {e}")
+        print("API Error:", e)
         return None
 
 def update_weather_loop():
     global weather_data, location_data, last_update
     location_data = load_config() or get_location_from_ip()
     if location_data:
-        save_config(location_data)
+        save_config = lambda c: None  # dummy
+        # save_config(location_data)
 
     while True:
-        if location_data:
-            data = fetch_weather(location_data["latitude"], location_data["longitude"])
-            if data:
-                weather_data = data
-                last_update = datetime.now().isoformat()
+        data = fetch_weather(location_data["latitude"], location_data["longitude"])
+        if data:
+            weather_data = data
+            last_update = datetime.now().isoformat()
         time.sleep(UPDATE_INTERVAL)
 
 @app.route('/')
@@ -98,8 +88,8 @@ def index():
 
 @app.route('/api/weather')
 def get_weather():
-    if not weather_data or not location_data:
-        return jsonify({"error": "Loading..."}), 503
+    if not weather_data:
+        return jsonify({"error": "Loading data..."}), 503
 
     current = weather_data.get("current", {})
     code = current.get("weather_code", 0)
@@ -107,7 +97,7 @@ def get_weather():
 
     daily = weather_data.get("daily", {})
     daily_forecast = []
-    if daily and "time" in daily:
+    if daily.get("time"):
         for i in range(min(7, len(daily["time"]))):
             daily_forecast.append({
                 "day": datetime.fromisoformat(daily["time"][i]).strftime("%a"),
@@ -116,21 +106,18 @@ def get_weather():
             })
 
     return jsonify({
-        "location": location_data.get("location_name"),
+        "location": location_data.get("location_name", "Bristow, VA"),
         "temperature": round(current.get("temperature_2m", 0)),
         "feels_like": round(current.get("apparent_temperature", 0)),
-        "humidity": current.get("relative_humidity_2m"),
+        "humidity": current.get("relative_humidity_2m", 0),
         "wind_speed": round(current.get("wind_speed_10m", 0), 1),
         "pressure": round(current.get("pressure_msl", 0)),
-        "dew_point": round(current.get("dew_point_2m", 0), 1),
         "condition": condition,
         "emoji": emoji,
         "daily": daily_forecast,
-        "last_update": last_update,
-        "timezone": weather_data.get("timezone", "UTC")
+        "last_update": last_update
     })
 
 if __name__ == '__main__':
     threading.Thread(target=update_weather_loop, daemon=True).start()
-    print("🌤️ Weather Station running")
     app.run(host='0.0.0.0', port=5000, debug=False)
