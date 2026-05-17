@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Stable Weather Station Dashboard
+🌤️ Weather Station - Fixed & Improved Version
 """
 
 from flask import Flask, render_template, jsonify
@@ -25,8 +25,10 @@ last_update = None
 
 WEATHER_CODES = {
     0: ("Clear sky", "☀️"), 1: ("Mainly clear", "🌤️"), 2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"),
-    65: ("Heavy rain", "🌧️"), 71: ("Snow", "🌨️"), 95: ("Thunderstorm", "⛈️")
+    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 48: ("Fog", "🌫️"),
+    51: ("Light drizzle", "🌦️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"), 65: ("Heavy rain", "🌧️"),
+    71: ("Snow", "🌨️"), 73: ("Snow", "🌨️"), 75: ("Heavy snow", "❄️"),
+    95: ("Thunderstorm", "⛈️"), 99: ("Thunderstorm", "⛈️"),
 }
 
 def load_config():
@@ -49,7 +51,6 @@ def get_location_from_ip():
             return {"latitude": lat, "longitude": lon, "location_name": name}
     except:
         pass
-    # Fallback to Bristow, VA
     return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
 def fetch_weather(lat, lon):
@@ -58,7 +59,7 @@ def fetch_weather(lat, lon):
             "latitude": lat,
             "longitude": lon,
             "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl",
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+            "daily": "temperature_2m_max,temperature_2m_min",
             "temperature_unit": "fahrenheit",
             "wind_speed_unit": "mph",
             "timezone": "auto",
@@ -68,14 +69,13 @@ def fetch_weather(lat, lon):
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print("API Error:", e)
+        print(f"API Error: {e}")
         return None
 
 def update_weather_loop():
     global weather_data, location_data, last_update
-    
     location_data = load_config() or get_location_from_ip()
-    
+
     while True:
         data = fetch_weather(location_data["latitude"], location_data["longitude"])
         if data:
@@ -93,7 +93,7 @@ def index():
 @app.route('/api/weather')
 def get_weather():
     if not weather_data:
-        return jsonify({"error": "Loading weather data..."}), 503
+        return jsonify({"status": "loading", "location": location_data.get("location_name", "Bristow, VA")})
 
     current = weather_data.get("current", {})
     code = current.get("weather_code", 0)
