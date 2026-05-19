@@ -3,124 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Station • Bristow, VA</title>
+    <title>BRISTOW WEATHER STATION</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: #05080f;
-            color: #e0f0ff;
+            font-family: 'Courier New', monospace;
+            background: #02050f;
+            color: #00ffcc;
             margin: 0;
-            padding: 10px;
+            padding: 15px;
             min-height: 100vh;
         }
         .station {
-            background: linear-gradient(180deg, #0c1428, #1a2338);
-            border: 2px solid #334466;
-            border-radius: 16px;
+            background: #0a0f1f;
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
             padding: 25px;
             max-width: 1100px;
             margin: 0 auto;
-            box-shadow: 0 0 40px rgba(0, 100, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.2);
         }
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            border-bottom: 1px solid #334455;
+            padding-bottom: 15px;
             margin-bottom: 20px;
         }
-        .clock { font-size: 32px; font-weight: bold; color: #00ccff; }
-        .location { font-size: 26px; color: #66ccff; }
+        .title { font-size: 22px; letter-spacing: 3px; color: #00ccaa; }
+        .clock { font-size: 32px; font-weight: bold; }
         .main {
             text-align: center;
-            margin: 20px 0 30px;
-        }
-        .emoji { font-size: 120px; margin: 10px 0; }
-        .temperature { font-size: 88px; font-weight: 200; line-height: 1; }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 18px;
             margin: 25px 0;
         }
+        .emoji { font-size: 130px; }
+        .temperature { font-size: 92px; font-weight: bold; margin: 10px 0; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
         .metric {
-            background: rgba(255,255,255,0.08);
-            padding: 16px;
-            border-radius: 10px;
+            background: rgba(0, 30, 40, 0.6);
+            padding: 18px;
+            border: 1px solid #00cc99;
+            border-radius: 6px;
             text-align: center;
-            border: 1px solid #334466;
         }
-        .label { font-size: 13px; color: #8899bb; text-transform: uppercase; letter-spacing: 1px; }
-        .value { font-size: 28px; font-weight: 300; }
-        .aqi {
-            font-size: 32px;
-            font-weight: bold;
-            padding: 8px 20px;
-            border-radius: 8px;
-            display: inline-block;
-        }
-        .daily {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 30px;
-        }
-        .day { text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; min-width: 70px; }
+        .label { font-size: 12px; color: #88aaaa; letter-spacing: 1px; }
+        .value { font-size: 30px; }
+        .aqi-good { color: #00ff00; }
+        .aqi-moderate { color: #ffff00; }
+        .aqi-unhealthy { color: #ff8800; }
+        .aqi-bad { color: #ff0000; }
     </style>
 </head>
 <body>
     <div class="station" id="station">
-        <div style="text-align:center; padding:100px 20px;">Loading Weather Station...</div>
+        <div style="text-align:center;padding:120px;">INITIALIZING STATION...</div>
     </div>
 
     <script>
         function updateClock() {
-            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', {
-                hour: 'numeric', minute: '2-digit', hour12: true
-            });
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', {hour12:true});
         }
         setInterval(updateClock, 1000);
 
-        function getAQIColor(aqi) {
-            if (aqi <= 50) return "#00ff00";
-            if (aqi <= 100) return "#ffff00";
-            if (aqi <= 150) return "#ffaa00";
-            if (aqi <= 200) return "#ff0000";
-            return "#9900ff";
+        function getEmoji(code, isDay) {
+            const nightMap = {0:"🌙",1:"🌙",2:"☁️",3:"☁️",45:"🌫️",61:"🌧️",95:"⛈️"};
+            return isDay ? "☀️" : (nightMap[code] || "🌙");
         }
 
         async function updateWeather() {
             try {
                 const res = await fetch('/api/weather');
                 const d = await res.json();
-
                 if (d.status === "loading") return;
 
+                const aqi = d.aqi;
                 let aqiHTML = '';
-                if (d.aqi !== null && d.aqi !== undefined) {
-                    const color = getAQIColor(d.aqi);
-                    aqiHTML = `
-                        <div class="metric">
-                            <div class="label">AIR QUALITY</div>
-                            <div class="aqi" style="background:${color}; color:black;">${d.aqi}</div>
-                        </div>`;
+                if (aqi) {
+                    let colorClass = aqi <= 50 ? 'aqi-good' : aqi <= 100 ? 'aqi-moderate' : aqi <= 150 ? 'aqi-unhealthy' : 'aqi-bad';
+                    aqiHTML = `<div class="metric"><div class="label">AQI</div><div class="value ${colorClass}">${aqi}</div></div>`;
                 }
 
                 let html = `
                     <div class="header">
-                        <div>
-                            <div class="location">${d.location}</div>
-                            <div style="font-size:20px;">${d.condition}</div>
-                        </div>
+                        <div class="title">BRISTOW WEATHER STATION</div>
                         <div class="clock" id="clock"></div>
                     </div>
-
                     <div class="main">
-                        <div class="emoji">${d.emoji}</div>
+                        <div class="emoji">${getEmoji(d.weather_code || 0, d.is_day)}</div>
                         <div class="temperature">${d.temperature}°F</div>
-                        <div style="font-size:22px">Feels like ${d.feels_like}°F</div>
+                        <div style="font-size:24px">${d.condition} • Feels ${d.feels_like}°F</div>
                     </div>
-
                     <div class="grid">
                         <div class="metric"><div class="label">HUMIDITY</div><div class="value">${d.humidity}%</div></div>
                         <div class="metric"><div class="label">WIND</div><div class="value">${d.wind_speed} mph</div></div>
@@ -129,22 +105,17 @@
                     </div>
                 `;
 
-                if (d.daily && d.daily.length > 0) {
-                    html += `<h3 style="text-align:center; margin:25px 0 15px; color:#66ccff;">7-DAY FORECAST</h3><div class="daily">`;
+                if (d.daily) {
+                    html += `<h3 style="text-align:center;margin:25px 0 15px;color:#00ccaa;">7-DAY FORECAST</h3><div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:15px">`;
                     d.daily.forEach(day => {
-                        html += `<div class="day"><b>${day.day}</b><br>${day.max}° / ${day.min}°</div>`;
+                        html += `<div style="text-align:center"><b>${day.day}</b><br>${day.max}° / ${day.min}°</div>`;
                     });
                     html += `</div>`;
                 }
 
-                html += `<div style="text-align:center; margin-top:30px; color:#556677; font-size:14px;">
-                    Last Updated: ${d.last_update || 'Just now'}
-                </div>`;
-
+                html += `<div style="text-align:center;margin-top:35px;color:#556677">Last Updated: ${d.last_update}</div>`;
                 document.getElementById('station').innerHTML = html;
-            } catch (e) {
-                console.error(e);
-            }
+            } catch(e) {}
         }
 
         updateWeather();
