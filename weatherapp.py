@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Weather Station with Air Quality Index (AQI)
+🌤️ Technical Weather Station - Day/Night Emojis + Professional UI
 """
 
 from flask import Flask, render_template, jsonify
@@ -25,10 +25,13 @@ air_quality_data = {}
 location_data = {}
 last_update = None
 
+# Enhanced weather codes with day/night support handled in frontend
 WEATHER_CODES = {
-    0: ("Clear sky", "☀️"), 1: ("Mainly clear", "🌤️"), 2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"),
-    65: ("Heavy rain", "🌧️"), 71: ("Snow", "🌨️"), 95: ("Thunderstorm", "⛈️")
+    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+    45: "🌫️", 48: "🌫️",
+    51: "🌦️", 61: "🌧️", 63: "🌧️", 65: "🌧️",
+    71: "🌨️", 73: "🌨️", 75: "❄️",
+    95: "⛈️", 96: "⛈️", 99: "⛈️"
 }
 
 def load_config():
@@ -46,8 +49,7 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            name = f"{data.get('city', 'Unknown')}, {data.get('region', 'VA')}"
-            return {"latitude": lat, "longitude": lon, "location_name": name}
+            return {"latitude": lat, "longitude": lon, "location_name": "Bristow, VA"}
     except: pass
     return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
@@ -56,7 +58,7 @@ def fetch_weather(lat, lon):
         params = {
             "latitude": lat,
             "longitude": lon,
-            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl",
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl,is_day",
             "daily": "temperature_2m_max,temperature_2m_min",
             "temperature_unit": "fahrenheit",
             "wind_speed_unit": "mph",
@@ -67,22 +69,19 @@ def fetch_weather(lat, lon):
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print(f"Weather API Error: {e}")
+        print(f"Weather Error: {e}")
         return None
 
 def fetch_air_quality(lat, lon):
     try:
-        params = {
+        r = requests.get(AIR_QUALITY_URL, params={
             "latitude": lat,
             "longitude": lon,
-            "current": "us_aqi,pm10,pm2_5"
-        }
-        r = requests.get(AIR_QUALITY_URL, params=params, timeout=10)
+            "current": "us_aqi"
+        }, timeout=10)
         r.raise_for_status()
         return r.json()
-    except Exception as e:
-        print(f"Air Quality API Error: {e}")
-        return None
+    except: return None
 
 def update_weather_loop():
     global weather_data, air_quality_data, location_data, last_update
@@ -90,15 +89,14 @@ def update_weather_loop():
 
     while True:
         data = fetch_weather(location_data["latitude"], location_data["longitude"])
-        aq_data = fetch_air_quality(location_data["latitude"], location_data["longitude"])
+        aq = fetch_air_quality(location_data["latitude"], location_data["longitude"])
         
         if data:
             weather_data = data
-        if aq_data:
-            air_quality_data = aq_data
+        if aq:
+            air_quality_data = aq
             
         last_update = datetime.now().isoformat()
-        print("✅ Weather + AQI updated")
         time.sleep(UPDATE_INTERVAL)
 
 @app.route('/')
@@ -108,15 +106,17 @@ def index():
 @app.route('/api/weather')
 def get_weather():
     if not weather_data:
-        return jsonify({"status": "loading", "location": location_data.get("location_name", "Bristow, VA")})
+        return jsonify({"status": "loading", "location": "Bristow, VA"})
 
     current = weather_data.get("current", {})
     code = current.get("weather_code", 0)
-    condition, emoji = WEATHER_CODES.get(code, ("Unknown", "🌡️"))
+    is_day = current.get("is_day", 1)
 
-    # Air Quality
-    aq = air_quality_data.get("current", {}) if air_quality_data else {}
-    aqi = aq.get("us_aqi")
+    condition = {
+        0: "Clear Sky", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
+        45: "Fog", 61: "Rain", 63: "Rain", 65: "Heavy Rain",
+        71: "Snow", 95: "Thunderstorm"
+    }.get(code, "Unknown")
 
     daily = weather_data.get("daily", {})
     daily_forecast = []
@@ -128,6 +128,9 @@ def get_weather():
                 "min": round(daily["temperature_2m_min"][i])
             })
 
+    aq = air_quality_data.get("current", {}) if air_quality_data else {}
+    aqi = aq.get("us_aqi")
+
     return jsonify({
         "location": location_data.get("location_name", "Bristow, VA"),
         "temperature": round(current.get("temperature_2m", 0)),
@@ -137,18 +140,17 @@ def get_weather():
         "pressure": round(current.get("pressure_msl", 0)),
         "aqi": round(aqi) if aqi is not None else None,
         "condition": condition,
-        "emoji": emoji,
+        "is_day": is_day,
         "daily": daily_forecast,
         "last_update": last_update
     })
 
 if __name__ == '__main__':
-    # Initial fetch
     location_data = load_config() or get_location_from_ip()
     weather_data = fetch_weather(location_data["latitude"], location_data["longitude"])
     air_quality_data = fetch_air_quality(location_data["latitude"], location_data["longitude"])
     last_update = datetime.now().isoformat()
 
     threading.Thread(target=update_weather_loop, daemon=True).start()
-    print("🌤️ Weather Station with AQI started")
+    print("🌤️ Technical Weather Station started")
     app.run(host='0.0.0.0', port=5000, debug=False)
