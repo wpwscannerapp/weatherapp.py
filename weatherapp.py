@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Weather Station - Fixed & Improved Version
+🌤️ Weather Station - Fixed Initial Load
 """
 
 from flask import Flask, render_template, jsonify
@@ -25,10 +25,8 @@ last_update = None
 
 WEATHER_CODES = {
     0: ("Clear sky", "☀️"), 1: ("Mainly clear", "🌤️"), 2: ("Partly cloudy", "⛅"),
-    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 48: ("Fog", "🌫️"),
-    51: ("Light drizzle", "🌦️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"), 65: ("Heavy rain", "🌧️"),
-    71: ("Snow", "🌨️"), 73: ("Snow", "🌨️"), 75: ("Heavy snow", "❄️"),
-    95: ("Thunderstorm", "⛈️"), 99: ("Thunderstorm", "⛈️"),
+    3: ("Overcast", "☁️"), 45: ("Fog", "🌫️"), 61: ("Rain", "🌧️"), 63: ("Rain", "🌧️"),
+    65: ("Heavy rain", "🌧️"), 71: ("Snow", "🌨️"), 95: ("Thunderstorm", "⛈️")
 }
 
 def load_config():
@@ -36,8 +34,7 @@ def load_config():
         try:
             with open(CONFIG_FILE) as f:
                 return json.load(f)
-        except:
-            pass
+        except: pass
     return None
 
 def get_location_from_ip():
@@ -49,8 +46,7 @@ def get_location_from_ip():
         if lat and lon:
             name = f"{data.get('city', 'Unknown')}, {data.get('region', 'VA')}"
             return {"latitude": lat, "longitude": lon, "location_name": name}
-    except:
-        pass
+    except: pass
     return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
 def fetch_weather(lat, lon):
@@ -81,9 +77,7 @@ def update_weather_loop():
         if data:
             weather_data = data
             last_update = datetime.now().isoformat()
-            print("✅ Weather updated successfully")
-        else:
-            print("⚠️ Failed to fetch weather")
+            print("✅ Weather updated")
         time.sleep(UPDATE_INTERVAL)
 
 @app.route('/')
@@ -123,6 +117,17 @@ def get_weather():
     })
 
 if __name__ == '__main__':
+    # Initial fetch BEFORE starting the server
+    print("🌤️ Performing initial weather fetch...")
+    location_data = load_config() or get_location_from_ip()
+    initial_data = fetch_weather(location_data["latitude"], location_data["longitude"])
+    if initial_data:
+        weather_data = initial_data
+        last_update = datetime.now().isoformat()
+        print("✅ Initial weather data loaded")
+
+    # Start background updates
     threading.Thread(target=update_weather_loop, daemon=True).start()
-    print("🌤️ Weather Station started")
+    
+    print("🌤️ Starting Flask server...")
     app.run(host='0.0.0.0', port=5000, debug=False)
