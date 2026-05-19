@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌤️ Weather Station - Fixed Initial Load
+🌤️ Weather Station with Air Quality Index (AQI)
 """
 
 from flask import Flask, render_template, jsonify
@@ -17,9 +17,11 @@ CONFIG_FILE = os.path.expanduser("~/.weather_station_config.json")
 UPDATE_INTERVAL = 30
 
 WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
+AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 IP_LOCATION_URL = "https://ipapi.co/json/"
 
 weather_data = {}
+air_quality_data = {}
 location_data = {}
 last_update = None
 
@@ -44,12 +46,9 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            # Force Bristow if close to Northern Virginia
-            name = "Bristow, VA"
-            return {"latitude": 38.75, "longitude": -77.55, "location_name": name}
-    except:
-        pass
-    # Final fallback
+            name = f"{data.get('city', 'Unknown')}, {data.get('region', 'VA')}"
+            return {"latitude": lat, "longitude": lon, "location_name": name}
+    except: pass
     return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
 def fetch_weather(lat, lon):
@@ -68,19 +67,38 @@ def fetch_weather(lat, lon):
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print(f"API Error: {e}")
+        print(f"Weather API Error: {e}")
+        return None
+
+def fetch_air_quality(lat, lon):
+    try:
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "current": "us_aqi,pm10,pm2_5"
+        }
+        r = requests.get(AIR_QUALITY_URL, params=params, timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print(f"Air Quality API Error: {e}")
         return None
 
 def update_weather_loop():
-    global weather_data, location_data, last_update
+    global weather_data, air_quality_data, location_data, last_update
     location_data = load_config() or get_location_from_ip()
 
     while True:
         data = fetch_weather(location_data["latitude"], location_data["longitude"])
+        aq_data = fetch_air_quality(location_data["latitude"], location_data["longitude"])
+        
         if data:
             weather_data = data
-            last_update = datetime.now().isoformat()
-            print("✅ Weather updated")
+        if aq_data:
+            air_quality_data = aq_data
+            
+        last_update = datetime.now().isoformat()
+        print("✅ Weather + AQI updated")
         time.sleep(UPDATE_INTERVAL)
 
 @app.route('/')
@@ -95,6 +113,10 @@ def get_weather():
     current = weather_data.get("current", {})
     code = current.get("weather_code", 0)
     condition, emoji = WEATHER_CODES.get(code, ("Unknown", "🌡️"))
+
+    # Air Quality
+    aq = air_quality_data.get("current", {}) if air_quality_data else {}
+    aqi = aq.get("us_aqi")
 
     daily = weather_data.get("daily", {})
     daily_forecast = []
@@ -113,6 +135,7 @@ def get_weather():
         "humidity": current.get("relative_humidity_2m", "--"),
         "wind_speed": round(current.get("wind_speed_10m", 0), 1),
         "pressure": round(current.get("pressure_msl", 0)),
+        "aqi": round(aqi) if aqi is not None else None,
         "condition": condition,
         "emoji": emoji,
         "daily": daily_forecast,
@@ -120,17 +143,12 @@ def get_weather():
     })
 
 if __name__ == '__main__':
-    # Initial fetch BEFORE starting the server
-    print("🌤️ Performing initial weather fetch...")
+    # Initial fetch
     location_data = load_config() or get_location_from_ip()
-    initial_data = fetch_weather(location_data["latitude"], location_data["longitude"])
-    if initial_data:
-        weather_data = initial_data
-        last_update = datetime.now().isoformat()
-        print("✅ Initial weather data loaded")
+    weather_data = fetch_weather(location_data["latitude"], location_data["longitude"])
+    air_quality_data = fetch_air_quality(location_data["latitude"], location_data["longitude"])
+    last_update = datetime.now().isoformat()
 
-    # Start background updates
     threading.Thread(target=update_weather_loop, daemon=True).start()
-    
-    print("🌤️ Starting Flask server...")
+    print("🌤️ Weather Station with AQI started")
     app.run(host='0.0.0.0', port=5000, debug=False)
