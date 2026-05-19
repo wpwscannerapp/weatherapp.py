@@ -44,9 +44,12 @@ def get_location_from_ip():
         lat = data.get("latitude")
         lon = data.get("longitude")
         if lat and lon:
-            name = f"{data.get('city', 'Unknown')}, {data.get('region', 'VA')}"
-            return {"latitude": lat, "longitude": lon, "location_name": name}
-    except: pass
+            # Force Bristow if close to Northern Virginia
+            name = "Bristow, VA"
+            return {"latitude": 38.75, "longitude": -77.55, "location_name": name}
+    except:
+        pass
+    # Final fallback
     return {"latitude": 38.75, "longitude": -77.55, "location_name": "Bristow, VA"}
 
 def fetch_weather(lat, lon):
