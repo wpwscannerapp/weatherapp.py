@@ -25,6 +25,7 @@
         .header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             border-bottom: 1px solid #334455;
             padding-bottom: 15px;
             margin-bottom: 20px;
@@ -35,43 +36,88 @@
             text-align: center;
             margin: 25px 0;
         }
-        .emoji { font-size: 130px; }
+        .emoji { font-size: 130px; line-height: 1; }
         .temperature { font-size: 92px; font-weight: bold; margin: 10px 0; }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
             margin: 30px 0;
         }
         .metric {
             background: rgba(0, 30, 40, 0.6);
-            padding: 18px;
+            padding: 15px 10px;
             border: 1px solid #00cc99;
             border-radius: 6px;
             text-align: center;
         }
-        .label { font-size: 12px; color: #88aaaa; letter-spacing: 1px; }
-        .value { font-size: 30px; }
-        .aqi-good { color: #00ff00; }
-        .aqi-moderate { color: #ffff00; }
-        .aqi-unhealthy { color: #ff8800; }
-        .aqi-bad { color: #ff0000; }
+        .label { font-size: 11px; color: #88aaaa; letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase; }
+        .value { font-size: 26px; font-weight: bold; }
+        
+        /* Tactical color classifications */
+        .aqi-good { color: #00ff66; }
+        .aqi-moderate { color: #ffff33; }
+        .aqi-unhealthy { color: #ff9933; }
+        .aqi-bad { color: #ff3333; }
+        
+        .forecast-container {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .forecast-card {
+            background: rgba(5, 15, 30, 0.8);
+            border: 1px solid #334455;
+            border-radius: 4px;
+            padding: 12px 5px;
+            text-align: center;
+        }
+        .forecast-emoji { font-size: 24px; margin: 8px 0; }
+
+        @media (max-width: 768px) {
+            .header { flex-direction: column; text-align: center; gap: 10px; }
+            .forecast-container { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 480px) {
+            .forecast-container { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
 </head>
 <body>
     <div class="station" id="station">
-        <div style="text-align:center;padding:120px;">INITIALIZING STATION...</div>
+        <div class="header">
+            <div class="title">BRISTOW WEATHER STATION</div>
+            <div class="clock" id="clock">--:--:-- AM</div>
+        </div>
+        <div id="station-content">
+            <div style="text-align:center;padding:120px;">INITIALIZING STATION LAYOUT...</div>
+        </div>
     </div>
 
     <script>
+        // FIXED: Separate Clock handler logic so it never drops reference pointers 
         function updateClock() {
-            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', {hour12:true});
+            const clockEl = document.getElementById('clock');
+            if (clockEl) {
+                clockEl.textContent = new Date().toLocaleTimeString('en-US', {hour12:true});
+            }
         }
         setInterval(updateClock, 1000);
+        updateClock();
 
-        function getEmoji(code, isDay) {
-            const nightMap = {0:"🌙",1:"🌙",2:"☁️",3:"☁️",45:"🌫️",61:"🌧️",95:"⛈️"};
-            return isDay ? "☀️" : (nightMap[code] || "🌙");
+        // Enhanced mapping matching the new backend schema data outputs
+        function getConditionEmoji(conditionText, isDay) {
+            const text = conditionText.toLowerCase();
+            if (text.includes("thunderstorm")) return "⛈️";
+            if (text.includes("heavy rain") || text.includes("violent")) return "🌧️";
+            if (text.includes("rain") || text.includes("drizzle")) return "🌦️";
+            if (text.includes("snow") || text.includes("grains")) return "🌨️";
+            if (text.includes("fog")) return "🌫️";
+            if (text.includes("overcast")) return "☁️";
+            if (text.includes("partly cloudy")) return "⛅";
+            if (text.includes("mainly clear")) return "🌤️";
+            return isDay ? "☀️" : "🌙";
         }
 
         async function updateWeather() {
@@ -80,44 +126,61 @@
                 const d = await res.json();
                 if (d.status === "loading") return;
 
+                // Match layout class designations against AQI limits
                 const aqi = d.aqi;
-                let aqiHTML = '';
-                if (aqi) {
-                    let colorClass = aqi <= 50 ? 'aqi-good' : aqi <= 100 ? 'aqi-moderate' : aqi <= 150 ? 'aqi-unhealthy' : 'aqi-bad';
-                    aqiHTML = `<div class="metric"><div class="label">AQI</div><div class="value ${colorClass}">${aqi}</div></div>`;
-                }
+                let colorClass = 'aqi-good';
+                if (aqi > 50) colorClass = 'aqi-moderate';
+                if (aqi > 100) colorClass = 'aqi-unhealthy';
+                if (aqi > 150) colorClass = 'aqi-bad';
+
+                // Format timestamp string elegantly
+                const updateTime = d.last_update ? new Date(d.last_update).toLocaleTimeString() : '--';
 
                 let html = `
-                    <div class="header">
-                        <div class="title">BRISTOW WEATHER STATION</div>
-                        <div class="clock" id="clock"></div>
-                    </div>
                     <div class="main">
-                        <div class="emoji">${getEmoji(d.weather_code || 0, d.is_day)}</div>
+                        <div class="emoji">${getConditionEmoji(d.condition, d.is_day)}</div>
                         <div class="temperature">${d.temperature}°F</div>
-                        <div style="font-size:24px">${d.condition} • Feels ${d.feels_like}°F</div>
+                        <div style="font-size:24px; letter-spacing:1px; color:#00ccaa;">${d.condition.toUpperCase()} • FEELS ${d.feels_like}°F</div>
                     </div>
+                    
                     <div class="grid">
-                        <div class="metric"><div class="label">HUMIDITY</div><div class="value">${d.humidity}%</div></div>
-                        <div class="metric"><div class="label">WIND</div><div class="value">${d.wind_speed} mph</div></div>
-                        <div class="metric"><div class="label">PRESSURE</div><div class="value">${d.pressure} hPa</div></div>
-                        ${aqiHTML}
+                        <div class="metric"><div class="label">Humidity</div><div class="value">${d.humidity}%</div></div>
+                        <div class="metric"><div class="label">Wind Speed</div><div class="value">${d.wind_speed}<span style="font-size:14px;font-weight:normal;"> mph</span></div></div>
+                        <div class="metric"><div class="label">Barometer</div><div class="value">${d.pressure}<span style="font-size:12px;font-weight:normal;"> hPa</span></div></div>
+                        <div class="metric"><div class="label">UV Index</div><div class="value" style="color:#ffcc00">${d.uv_index}</div></div>
+                        <div class="metric"><div class="label">AQI (${d.aqi_description})</div><div class="value ${colorClass}">${aqi || '--'}</div></div>
+                        <div class="metric"><div class="label">PM2.5 Particle</div><div class="value">${d.pm2_5 || '0'}<span style="font-size:12px;font-weight:normal;"> µg</span></div></div>
                     </div>
                 `;
 
-                if (d.daily) {
-                    html += `<h3 style="text-align:center;margin:25px 0 15px;color:#00ccaa;">7-DAY FORECAST</h3><div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:15px">`;
+                if (d.daily && d.daily.length > 0) {
+                    html += `
+                        <h3 style="text-align:center;margin:35px 0 15px;color:#00ccaa;letter-spacing:2px;">7-DAY SYSTEM FORECAST</h3>
+                        <div class="forecast-container">
+                    `;
                     d.daily.forEach(day => {
-                        html += `<div style="text-align:center"><b>${day.day}</b><br>${day.max}° / ${day.min}°</div>`;
+                        html += `
+                            <div class="forecast-card">
+                                <div style="font-size:12px;color:#88aaaa;">${day.day.toUpperCase()}</div>
+                                <div class="forecast-emoji">${getConditionEmoji(day.condition, true)}</div>
+                                <div style="font-size:15px;font-weight:bold;">${day.max}°</div>
+                                <div style="font-size:12px;color:#557788;">${day.min}°</div>
+                            </div>
+                        `;
                     });
                     html += `</div>`;
                 }
 
-                html += `<div style="text-align:center;margin-top:35px;color:#556677">Last Updated: ${d.last_update}</div>`;
-                document.getElementById('station').innerHTML = html;
-            } catch(e) {}
+                html += `<div style="text-align:center;margin-top:40px;color:#445566;font-size:12px;">SYSTEM MONITOR STATUS: OPERATIONAL // LAST SYNC: ${updateTime}</div>`;
+                
+                // Update content window without touching parent header or clock
+                document.getElementById('station-content').innerHTML = html;
+            } catch(e) {
+                console.error("Dashboard render fault:", e);
+            }
         }
 
+        // Trigger updates sequentially
         updateWeather();
         setInterval(updateWeather, 30000);
     </script>
