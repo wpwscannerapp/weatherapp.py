@@ -4,24 +4,28 @@ A dark, industrial-style weather dashboard built with Streamlit and the free Ope
 
 ## Deploy on Streamlit Community Cloud
 
-1. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/) with your GitHub account and authorize access to this repository.
-2. Click **Create app** (or use the [deploy page](https://share.streamlit.io/deploy)).
-3. Select repository `wpwscannerapp/weatherapp.py`, branch `main`, and main file path `streamlit_app.py`.
-4. Click **Deploy**. Streamlit installs the dependencies from `requirements.txt`.
+1. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/) with GitHub and select **Create app**.
+2. Choose repository `wpwscannerapp/weatherapp.py` and branch `main`.
+3. Set the main file path to `streamlit_app.py`, then click **Deploy**.
+4. Streamlit Cloud installs the packages from `requirements.txt` automatically.
 
-The app entry point is `streamlit_app.py`; it loads the dashboard in `weatherapp.py`.
+## Location options
+
+- **City / ZIP lookup** searches city names worldwide and resolves five-digit US ZIP codes. The initial location is Bristow, VA; search for your own place in the sidebar.
+- **Automatic IP location** is approximate. On a hosted service, IP geolocation may locate the app server rather than the person viewing the app.
+- **Manual coordinates** lets you enter latitude and longitude directly.
+
+## Kiosk mode and clock
+
+Use **Enter kiosk mode** in the sidebar to hide Streamlit navigation and controls. The dashboard clock updates every second in the browser, and weather data refreshes every five minutes. Browsers do not allow websites to force fullscreen without a user action; press **F11** or launch the browser with its kiosk/fullscreen option for a true full-screen display. Exit kiosk mode using the on-screen button.
 
 ## Features
 
 - Current conditions, feels-like temperature, humidity, wind, pressure, UV, and air quality
-- Seven-day forecast
-- Dark station-console interface and live clock
-- Manual latitude/longitude settings
-- Approximate IP-based location fallback and Bristow, VA fallback
-- Cached API responses (up to five minutes) and a manual refresh button
-- Weather condition notices for thunderstorms and some heavy precipitation (not official alerts)
-
-> **Location note:** IP geolocation on a hosted service may identify the server rather than you. For an accurate forecast, enable **Set location manually** in the sidebar and enter your coordinates.
+- Seven-day forecast and sunrise/sunset
+- Dark station-console interface, live clock, and scheduled refresh
+- Manual refresh and cached API requests
+- Weather condition notices for thunderstorms and certain heavy precipitation; these are not official severe-weather alerts
 
 ## Run locally
 
@@ -29,11 +33,3 @@ The app entry point is `streamlit_app.py`; it loads the dashboard in `weatherapp
 python -m pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
-
-## Files
-
-- `streamlit_app.py` — Streamlit Cloud entry point
-- `weatherapp.py` — dashboard and weather API implementation
-- `requirements.txt` — Python dependencies
-
-The old Flask template and Raspberry Pi setup scripts are not used by the Streamlit Cloud deployment.
