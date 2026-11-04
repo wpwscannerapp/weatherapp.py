@@ -1,47 +1,39 @@
-# 🌤️ Raspberry Pi Zero WH Weather Station
+# 🌤️ Weather Station
 
-A beautiful, professional dark-mode weather dashboard that runs automatically on a Raspberry Pi Zero WH.
+A dark, industrial-style weather dashboard built with Streamlit and the free Open-Meteo weather and air-quality APIs. No API key is required.
+
+## Deploy on Streamlit Community Cloud
+
+1. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/) with your GitHub account and authorize access to this repository.
+2. Click **Create app** (or use the [deploy page](https://share.streamlit.io/deploy)).
+3. Select repository `wpwscannerapp/weatherapp.py`, branch `main`, and main file path `streamlit_app.py`.
+4. Click **Deploy**. Streamlit installs the dependencies from `requirements.txt`.
+
+The app entry point is `streamlit_app.py`; it loads the dashboard in `weatherapp.py`.
 
 ## Features
 
-- **Auto location detection** (using IP geolocation on first run)
-- **Real-time weather updates** every 30 seconds
-- **Beautiful dark mode UI** – looks like a commercial weather station
-- **No API key required** – Uses free Open-Meteo API
-- **Auto-starts on boot** via systemd service
-- **Accessible from any device** on your network (phone, tablet, laptop, etc.)
+- Current conditions, feels-like temperature, humidity, wind, pressure, UV, and air quality
+- Seven-day forecast
+- Dark station-console interface and live clock
+- Manual latitude/longitude settings
+- Approximate IP-based location fallback and Bristow, VA fallback
+- Cached API responses (up to five minutes) and a manual refresh button
+- Weather condition notices for thunderstorms and some heavy precipitation (not official alerts)
 
-## Quick Setup on Raspberry Pi
+> **Location note:** IP geolocation on a hosted service may identify the server rather than you. For an accurate forecast, enable **Set location manually** in the sidebar and enter your coordinates.
+
+## Run locally
 
 ```bash
-cd ~/weather-station
-chmod +x setup.sh
-./setup.sh
-Access the Dashboard
-After setup, open a web browser and go to:
-http://YOUR_PI_IP:5000
-Find your Pi's IP address with:
-Bashhostname -I
-Service Management
-Bash# Check status
-sudo systemctl status weather-station
+python -m pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-# Restart
-sudo systemctl restart weather-station
+## Files
 
-# Stop
-sudo systemctl stop weather-station
+- `streamlit_app.py` — Streamlit Cloud entry point
+- `weatherapp.py` — dashboard and weather API implementation
+- `requirements.txt` — Python dependencies
 
-# View live logs
-sudo journalctl -u weather-station -f
-Reset Location
-If you move the Pi or want to change location:
-Bashrm ~/.weather_station_config.json
-sudo systemctl restart weather-station
-Project Structure
-textweather-station/
-├── weatherapp.py
-├── setup.sh
-├── README.md
-└── templates/
-    └── dashboard.html
+The old Flask template and Raspberry Pi setup scripts are not used by the Streamlit Cloud deployment.
